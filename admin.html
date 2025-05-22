@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Dashboard Admin</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    .tab-content > div { display: none; }
+    .tab-content > .active { display: block; }
+  </style>
+</head>
+<body>
+  <div class="container mt-4">
+    <h2>📊 Admin Dashboard</h2>
+    <ul class="nav nav-tabs mt-4" id="adminTabs">
+      <li class="nav-item">
+        <a class="nav-link active" href="#products" onclick="switchTab('products')">Sản phẩm</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="#users" onclick="switchTab('users')">Người dùng</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="#orders" onclick="switchTab('orders')">Đơn hàng</a>
+      </li>
+    </ul>
+
+    <div class="tab-content mt-4">
+      <!-- Products Tab -->
+      <div id="products" class="active">
+        <h4>🛍 Quản lý sản phẩm</h4>
+        <button class="btn btn-primary mb-2" onclick="showProductForm()">+ Thêm sản phẩm</button>
+        <table class="table table-bordered">
+          <thead><tr><th>ID</th><th>Tên</th><th>Giá</th><th>Mô tả</th><th>Hành động</th></tr></thead>
+          <tbody id="productTable"></tbody>
+        </table>
+      </div>
+
+      <!-- Users Tab -->
+      <div id="users">
+        <h4>👥 Quản lý người dùng</h4>
+        <button class="btn btn-primary mb-2" onclick="showUserForm()">+ Thêm người dùng</button>
+        <table class="table table-bordered">
+          <thead><tr><th>ID</th><th>Họ tên</th><th>Email</th><th>Vai trò</th><th>Hành động</th></tr></thead>
+          <tbody id="userTable"></tbody>
+        </table>
+      </div>
+
+      <!-- Orders Tab -->
+      <div id="orders">
+        <h4>📦 Quản lý đơn hàng</h4>
+        <table class="table table-bordered">
+          <thead><tr><th>ID</th><th>Người dùng</th><th>Tổng tiền</th><th>Thời gian</th><th>Trạng thái</th></tr></thead>
+          <tbody id="orderTable"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal/Form product -->
+  <div class="modal" tabindex="-1" id="productModal">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title">Thêm sản phẩm</h5></div>
+        <div class="modal-body">
+          <input type="hidden" id="productId">
+          <input type="text" id="productName" class="form-control mb-2" placeholder="Tên sản phẩm">
+          <input type="number" id="productPrice" class="form-control mb-2" placeholder="Giá">
+          <input type="text" id="productDescription" class="form-control mb-2" placeholder="Mô tả">
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" onclick="hideProductForm()">Hủy</button>
+          <button class="btn btn-success" onclick="submitProduct()">Lưu</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal/Form user -->
+  <div class="modal" tabindex="-1" id="userModal">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title">Thêm người dùng</h5></div>
+        <div class="modal-body">
+          <input type="hidden" id="userId">
+          <input type="text" id="userName" class="form-control mb-2" placeholder="Tên">
+          <input type="email" id="userEmail" class="form-control mb-2" placeholder="Email">
+          <input type="text" id="userRole" class="form-control mb-2" placeholder="Vai trò (USER/ADMIN)">
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" onclick="hideUserForm()">Hủy</button>
+          <button class="btn btn-success" onclick="submitUser()">Lưu</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const role = localStorage.getItem("role");
+    if (role !== "ADMIN") {
+      alert("❌ Truy cập bị từ chối. Chỉ ADMIN mới được vào.");
+      window.location.href = "/login.html";
+    }
+
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-content > div').forEach(div => div.classList.remove('active'));
+      document.getElementById(tabId).classList.add('active');
+      document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
+      document.querySelector(`a[href='#${tabId}']`).classList.add('active');
+
+      if (tabId === 'users') loadUsers();
+      if (tabId === 'orders') loadOrders();
+    }
+
+    function showProductForm(product = null) {
+      document.getElementById('productModal').style.display = 'block';
+      if (product) {
+        document.getElementById('productId').value = product.id;
+        document.getElementById('productName').value = product.name;
+        document.getElementById('productPrice').value = product.price;
+        document.getElementById('productDescription').value = product.description;
+      } else {
+        document.getElementById('productId').value = '';
+        document.getElementById('productName').value = '';
+        document.getElementById('productPrice').value = '';
+        document.getElementById('productDescription').value = '';
+      }
+    }
+
+    function hideProductForm() {
+      document.getElementById('productModal').style.display = 'none';
+    }
+
+    function submitProduct() {
+      const id = document.getElementById('productId').value;
+      const name = document.getElementById('productName').value;
+      const price = document.getElementById('productPrice').value;
+      const description = document.getElementById('productDescription').value;
+
+      const product = { name, price, description };
+      const url = id ? `https://code-web-mufd.onrender.com/product/update/${id}` : 'https://code-web-mufd.onrender.com/product/create';
+      const method = id ? 'PUT' : 'POST';
+
+      fetch(url, {
+        method: method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(product)
+      }).then(() => {
+        hideProductForm();
+        loadProducts();
+      });
+    }
+
+    function deleteProduct(id) {
+      if (confirm("Xác nhận xóa sản phẩm?")) {
+        fetch(`https://code-web-mufd.onrender.com/product/delete/${id}`, { method: 'DELETE' })
+          .then(() => loadProducts());
+      }
+    }
+
+    function showUserForm(user = null) {
+      document.getElementById('userModal').style.display = 'block';
+      if (user) {
+        document.getElementById('userId').value = user.id;
+        document.getElementById('userName').value = user.name;
+        document.getElementById('userEmail').value = user.email;
+        document.getElementById('userRole').value = user.role;
+      } else {
+        document.getElementById('userId').value = '';
+        document.getElementById('userName').value = '';
+        document.getElementById('userEmail').value = '';
+        document.getElementById('userRole').value = '';
+      }
+    }
+
+    function hideUserForm() {
+      document.getElementById('userModal').style.display = 'none';
+    }
+
+    function submitUser() {
+      const id = document.getElementById('userId').value;
+      const name = document.getElementById('userName').value;
+      const email = document.getElementById('userEmail').value;
+      const role = document.getElementById('userRole').value;
+
+      const user = { name, email, role };
+      const url = id ? `https://code-web-mufd.onrender.com/user/update/${id}` : 'https://code-web-mufd.onrender.com/user/create';
+      const method = id ? 'PUT' : 'POST';
+
+      fetch(url, {
+        method: method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(user)
+      }).then(() => {
+        hideUserForm();
+        loadUsers();
+      });
+    }
+
+    function deleteUser(id) {
+      if (confirm("Xác nhận xóa người dùng?")) {
+        fetch(`https://code-web-mufd.onrender.com/user/delete/${id}`, { method: 'DELETE' })
+          .then(() => loadUsers());
+      }
+    }
+
+    function loadProducts() {
+      fetch('https://code-web-mufd.onrender.com/product/search')
+        .then(res => res.json())
+        .then(data => {
+          const table = document.getElementById("productTable");
+          table.innerHTML = "";
+          data.forEach(p => {
+            const row = `<tr>
+              <td>${p.id}</td>
+              <td>${p.name}</td>
+              <td>${p.price}</td>
+              <td>${p.description}</td>
+              <td>
+                <button class='btn btn-sm btn-warning' onclick='showProductForm(${JSON.stringify(p)})'>Sửa</button>
+                <button class='btn btn-sm btn-danger' onclick='deleteProduct(${p.id})'>Xóa</button>
+              </td>
+            </tr>`;
+            table.innerHTML += row;
+          });
+        });
+    }
+
+    function loadUsers() {
+      fetch('https://code-web-mufd.onrender.com/user/search')
+        .then(res => res.json())
+        .then(data => {
+          const table = document.getElementById("userTable");
+          table.innerHTML = "";
+          data.forEach(u => {
+            const row = `<tr>
+              <td>${u.id}</td>
+              <td>${u.name}</td>
+              <td>${u.email}</td>
+              <td>${u.role}</td>
+              <td>
+                <button class='btn btn-sm btn-warning' onclick='showUserForm(${JSON.stringify(u)})'>Sửa</button>
+                <button class='btn btn-sm btn-danger' onclick='deleteUser(${u.id})'>Xóa</button>
+              </td>
+            </tr>`;
+            table.innerHTML += row;
+          });
+        });
+    }
+
+    function loadOrders() {
+      fetch('https://code-web-mufd.onrender.com/order/search')
+        .then(res => res.json())
+        .then(data => {
+          const table = document.getElementById("orderTable");
+          table.innerHTML = "";
+          data.forEach(o => {
+            const row = `<tr>
+              <td>${o.id}</td>
+              <td>${o.userId}</td>
+              <td>${o.amount.toLocaleString()}đ</td>
+              <td>${o.transTime}</td>
+              <td>${o.status === 1 ? 'Đã thanh toán' : 'Chưa thanh toán'}</td>
+            </tr>`;
+            table.innerHTML += row;
+          });
+        });
+    }
+
+    loadProducts();
+  </script>
+</body>
+</html>
